@@ -10,6 +10,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Scanner;
 import java.lang.Math;
 
 /**
@@ -282,12 +283,12 @@ public class PizzaStore {
                    case 3: viewMenu(esql); break;
                    case 4: placeOrder(esql); break;
                    case 5: viewAllOrders(authorisedUser, esql); break;
-                   case 6: viewRecentOrders(esql); break;
-                   case 7: viewOrderInfo(esql); break;
+                   case 6: viewRecentOrders(authorisedUser, esql); break;
+                   case 7: viewOrderInfo(authorisedUser, esql); break;
                    case 8: viewStores(esql); break;
-                   case 9: updateOrderStatus(esql); break;
-                   case 10: updateMenu(esql); break;
-                   case 11: updateUser(esql); break;
+                   case 9: updateOrderStatus(authorisedUser, esql); break;
+                   case 10: updateMenu(authorisedUser, esql); break;
+                   case 11: updateUser(authorisedUser, esql); break;
 
 
 
@@ -612,12 +613,165 @@ public class PizzaStore {
       }
    }
 
-   public static void viewRecentOrders(PizzaStore esql) {}
-   public static void viewOrderInfo(PizzaStore esql) {}
-   public static void viewStores(PizzaStore esql) {}
-   public static void updateOrderStatus(PizzaStore esql) {}
-   public static void updateMenu(PizzaStore esql) {}
-   public static void updateUser(PizzaStore esql) {}
+   public static void viewRecentOrders(String authorisedUser, PizzaStore esql) {
+       try {
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          System.out.println("VIEW YOUR 5 MOST RECENT ORDERS"); 
+          System.out.println("---------------");
+ 
+          String getRole = "SELECT role FROM Users WHERE login = '" + authorisedUser +"'";
+          String role = esql.executeQueryAndReturnResult(getRole).get(0).get(0).trim();
+          
+          String getRecent = "";
+ 
+          //implement customer view
+          if (role.equals("customer")) {
+             getRecent = "SELECT orderID, storeID, totalPrice, orderTimeStamp, orderStatus " +
+             "FROM FoodOrder WHERE login = '" + authorisedUser + "' ORDER BY orderTimeStamp DESC LIMIT 5";
+          } //implement manager and driver view
+          else {
+             System.out.println("Press '0' to search all orders");
+             System.out.println("Press any other number (1-9) to search by specific user");
+ 
+             int choice = readChoice();
+ 
+             if (choice == 0) {
+                getRecent = "SELECT orderID, storeID, totalPrice, orderTimeStamp, orderStatus " +
+                "FROM FoodOrder ORDER BY orderTimeStamp DESC LIMIT 5";
+             }
+             else {
+                Scanner scanner = new Scanner(System.in);
+                System.out.print("Enter a username: "); //get the customer/username
+                String userName = scanner.nextLine();
+                getRecent = "SELECT orderID, storeID, totalPrice, orderTimeStamp, orderStatus " +
+                "FROM FoodOrder WHERE login = '" + userName + "' ORDER BY orderTimeStamp DESC LIMIT 5";
+             }
+             
+          }
+ 
+          int results = esql.executeQueryAndPrintResult(getRecent);
+          if (results == 0) {
+             System.out.println("No order history was found\n");
+          }
+ 
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+ 
+       } catch(Exception e) {
+          System.err.println(e.getMessage());
+       }
+    }
+   public static void viewOrderInfo(String authorisedUser, PizzaStore esql) {
+       try {
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          System.out.println("VIEWING ORDER INFO");
+          System.out.println("---------------");
+ 
+          //first get the role from the user to determine whether they're a customer or not
+          String getRole = "SELECT role FROM Users WHERE login = '" + authorisedUser +"'";
+          String role = esql.executeQueryAndReturnResult(getRole).get(0).get(0).trim();
+ 
+          //implement customer only query
+          String getOrderInfo;
+ 
+          if (role.equals("customer")) {
+             System.out.println("Would you like to view your most recent orders first? (0 for no, 1-9 for yes)");
+             int choice = readChoice();
+             if (choice != 0) {
+                viewRecentOrders(authorisedUser, esql);
+             }
+             //TODO: if they have no orders on record exit out immediately
+             System.out.print("Please enter your orderID: "); //get orderID in order to better help the customer
+             int orderID = Integer.parseInt(in.readLine());
+ 
+             getOrderInfo = "SELECT orderTimeStamp, totalPrice, orderStatus, itemName, quantity FROM FoodOrder " +
+                                   "NATURAL JOIN ItemsInOrder WHERE login = '" + authorisedUser + "'" +
+                                   "AND orderID = '" + orderID + "'";
+ 
+          }
+          else {//implement function to get any order
+             System.out.print("Please enter the orderID: "); //get orderID in order to better help the manager/driver
+             int orderID = Integer.parseInt(in.readLine());
+             
+             getOrderInfo = "SELECT orderTimeStamp, totalPrice, orderStatus, itemName, quantity FROM FoodOrder " +
+                                   "NATURAL JOIN ItemsInOrder WHERE orderID = '" + orderID + "'";
+             
+          }
+ 
+          List<List<String>> result = esql.executeQueryAndReturnResult(getOrderInfo);
+ 
+          if (result.isEmpty()) {
+             System.out.println("Sorry, either this order was not found, or you do not have access to this order.");
+             return;
+          }
+ 
+         //print order details
+         System.out.println("\nORDER DETAILS:");
+         System.out.println("Order Timestamp: " + result.get(0).get(0));
+         System.out.println("Total Price: " + result.get(0).get(1));
+         System.out.println("Order Status: " + result.get(0).get(2));
+ 
+         //print items in the order
+         System.out.println("\nITEMS IN ORDER:");
+         System.out.println("Item Name\tQuantity");
+         for (List<String> row : result) {
+             System.out.println(row.get(3) + "\t\t" + row.get(4));
+         }
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          
+ 
+       } catch(Exception e) {
+          System.err.println(e.getMessage());
+       }
+    }
+	
+   public static void viewStores(PizzaStore esql) {
+       try {
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          System.out.println("VIEWING STORES");
+          System.out.println("---------------");
+          
+ 
+       } catch(Exception e) {
+          System.err.println(e.getMessage());
+       }
+    }
+	
+   public static void updateOrderStatus(String authorisedUser, PizzaStore esql) {
+       try {
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          System.out.println("UPDATE ORDER STATUS");
+          System.out.println("---------------");
+          
+ 
+       } catch(Exception e) {
+          System.err.println(e.getMessage());
+       }
+    }
+	
+   public static void updateMenu(String authorisedUser, PizzaStore esql) {
+       try {
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          System.out.println("UPDATE MENU");
+          System.out.println("---------------");
+          
+ 
+       } catch(Exception e) {
+          System.err.println(e.getMessage());
+       }
+    }
+   
+   
+   public static void updateUser(String authorisedUser, PizzaStore esql) {
+       try {
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          System.out.println("UPDATING USER INFO");
+          System.out.println("---------------");
+          
+ 
+       } catch(Exception e) {
+          System.err.println(e.getMessage());
+       }
+   }
 
 
 }//end PizzaStore

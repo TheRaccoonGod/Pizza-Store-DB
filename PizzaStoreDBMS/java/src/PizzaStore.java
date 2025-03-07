@@ -569,12 +569,133 @@ public class PizzaStore {
 
    public static void viewMenu(PizzaStore esql) {
       try {
-         
+         System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+         System.out.println("VIEWING MENU");
+         System.out.println("---------------");
+         String itemList = "SELECT itemName, typeOfItem, price FROM Items";
 
-      } catch(Exception e){
-         System.err.println (e.getMessage());
+         List<List<String>> menu = esql.executeQueryAndReturnResult(itemList);
+
+         System.out.println("| Number ----- Items ----- Food Type ----- Price |");
+         for (int i = 0; i < menu.size(); i++) {
+            System.out.println("| " + (i + 1) + " ----- " + menu.get(i).get(0) + " ----- " + menu.get(i).get(1) + " ----- " + menu.get(i).get(2));
+         }
+
+         boolean adjustMenuView = true;
+         int ordered = 0;
+
+         System.out.println("\n- - - - - - - - - - - - - - - - -");
+
+         while (adjustMenuView) {
+            System.out.println("\nMenu Filters and Searches");
+            System.out.println("--------------");
+            System.out.println("1. Filter price (Highest to lowest)");
+            System.out.println("2. Filter price (Lowest to Highest)");
+            System.out.println("3. Remove price filter");
+            System.out.println("4. Search by food type");
+            System.out.println("5. Search for food under certain price");
+            System.out.println("6. Get full menu");
+            System.out.println("9. Exit");
+
+            switch(readChoice()) {
+
+               case 1:
+                  if (ordered == 0) {
+                     itemList += " ORDER BY price DESC";
+
+                  } else if (ordered == 2) {
+                     itemList = itemList.substring(0, itemList.length() - 5);
+                     itemList += " DESC";
+                  }
+
+                  ordered = 1;
+
+                  menu = esql.executeQueryAndReturnResult(itemList);
+
+
+                  break;
+
+               case 2: 
+                  if (ordered == 0) {
+                     itemList += " ORDER BY price ASC ";
+                     
+                  } else if (ordered == 1) {
+                     itemList = itemList.substring(0, itemList.length() - 5);
+                     itemList += " ASC ";
+                  }
+
+                  ordered = 2;
+
+                  menu = esql.executeQueryAndReturnResult(itemList);
+                  
+                  break;
+
+               case 3: 
+                  itemList = itemList.substring(0, itemList.length() - 19);
+                  menu = esql.executeQueryAndReturnResult(itemList);
+
+                  ordered = 0;
+
+                  break;
+
+               case 4: 
+                  String foodTypeList = "SELECT DISTINCT(typeOfItem) FROM Items";
+                  menu = esql.executeQueryAndReturnResult(foodTypeList);
+
+                  System.out.println("Available options:");
+                  for (int i = 0; i < menu.size(); i++) {
+                     System.out.println("| " + (i + 1) + ": " + menu.get(i).get(0));
+                  }
+
+                  System.out.print("Select a food type: ");
+                  String userInput = in.readLine();
+
+                  itemList = "SELECT itemName, typeOfItem, price FROM Items WHERE typeOfItem = '" + menu.get(Integer.parseInt(userInput) - 1).get(0) + "'";
+
+                  menu = esql.executeQueryAndReturnResult(itemList);
+               
+                  ordered = 0;
+                  break;
+
+               case 5:
+                  System.out.println("Enter a price:");
+                  userInput = in.readLine();
+
+                  itemList = "SELECT itemName, typeOfItem, price FROM Items WHERE price < '" + Double.parseDouble(userInput) + "'";
+                  menu = esql.executeQueryAndReturnResult(itemList);
+
+                  ordered = 0;
+                  break;
+
+               case 6:
+                  itemList = "SELECT itemName, typeOfItem, price FROM Items";
+                  menu = esql.executeQueryAndReturnResult(itemList);
+
+                  ordered = 0;
+                  break;
+
+               case 9: adjustMenuView = false; break;
+
+               default: System.out.println("Unrecognized choice!"); break;
+            }
+
+            System.out.println("VIEWING MENU");
+            System.out.println("---------------");
+
+            System.out.println("| Number ----- Items ----- Food Type ----- Price |");
+            for (int i = 0; i < menu.size(); i++) {
+               System.out.println("| " + (i + 1) + " ----- " + menu.get(i).get(0) + " ----- " + menu.get(i).get(1) + " ----- " + menu.get(i).get(2));
+            }
+
+         }
+          
+      System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+      } catch(Exception e) {
+         System.err.println(e.getMessage());
       }
+         
    }
+	
    public static void placeOrder(PizzaStore esql) {}
    
    public static void viewAllOrders(String authorisedUser, PizzaStore esql) {

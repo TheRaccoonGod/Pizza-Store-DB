@@ -281,14 +281,27 @@ public class PizzaStore {
                    case 1: viewProfile(authorisedUser, esql); break;
                    case 2: updateProfile(authorisedUser, esql); break;
                    case 3: viewMenu(esql); break;
-                   case 4: placeOrder(esql); break;
+                   case 4: placeOrder(authorisedUser, esql); break;
                    case 5: viewAllOrders(authorisedUser, esql); break;
                    case 6: viewRecentOrders(authorisedUser, esql); break;
                    case 7: viewOrderInfo(authorisedUser, esql); break;
                    case 8: viewStores(esql); break;
-                   case 9: updateOrderStatus(authorisedUser, esql); break;
-                   case 10: updateMenu(authorisedUser, esql); break;
-                   case 11: updateUser(authorisedUser, esql); break;
+                   case 9: 
+                      if (!userRole.equals("customer")) {
+                         updateOrderStatus(authorisedUser, esql); 
+                      }
+                      break;
+                    case 10: 
+                      if (!userRole.equals("customer")) {
+                         updateMenu(authorisedUser, esql); 
+                      }
+                      break;
+                    case 11: 
+                      if (!userRole.equals("customer")) {
+                         updateUser(authorisedUser, esql); 
+                      }
+                      break;
+ 
 
 
 
@@ -696,7 +709,118 @@ public class PizzaStore {
          
    }
 	
-   public static void placeOrder(PizzaStore esql) {}
+   public static void placeOrder(String authorisedUser, PizzaStore esql) {
+       try {
+          System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+          System.out.println("PLACING ORDER");
+          System.out.println("---------------");
+          System.out.print("Input the city you are in: ");
+          String cityLoc = in.readLine();
+ 
+          String locationQuery = "SELECT address, city, state FROM Store WHERE city = '" + cityLoc + "'";
+          List<List<String>> location = esql.executeQueryAndReturnResult(locationQuery);
+ 
+          System.out.println("| Store Number ----- Store Location |");
+          for (int i = 0; i < location.size(); i++) {
+             System.out.println("| " + (i + 1) + " ----- " + location.get(i).get(0) + ", " + location.get(i).get(1) + ", " + location.get(i).get(2));
+          }
+ 
+          System.out.print("Select the store number to place order at: ");
+          String inputNum = in.readLine();
+ 
+          String findNewestOrder = "SELECT orderID FROM FoodOrder ORDER BY orderID DESC LIMIT 1";
+          int newOrderId = Integer.parseInt(esql.executeQueryAndReturnResult(findNewestOrder).get(0).get(0)) + 1;
+ 
+          locationQuery = "SELECT storeID FROM Store WHERE address = '" + location.get(Integer.parseInt(inputNum) - 1).get(0) + "'";
+          int storeID = Integer.parseInt(esql.executeQueryAndReturnResult(locationQuery).get(0).get(0));
+ 
+          SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+          Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+ 
+          String newOrderQuery = "INSERT INTO FoodOrder VALUES (" + newOrderId + ", '" +  authorisedUser + "', " + storeID + ", 0, timestamp '" + dateFormat.format(timestamp) + "', 'incomplete')";
+ 
+          esql.executeUpdate(newOrderQuery);
+          
+          boolean placingOrder = true;
+          double totalPrice = 0.0;
+          boolean cancelOrder = false;
+ 
+          while (placingOrder) {
+             System.out.print("Input the name of the item you want to order: ");
+             String itemName = in.readLine();
+ 
+             String validItem = "SELECT DISTINCT(itemName) FROM Items WHERE itemName = '" + itemName + "'";
+             int itemCheck = esql.executeQuery(validItem);
+             
+             while (itemCheck == 0) {
+                System.out.print("Invalid item.  Please try again or type cancel to stop placing your order: ");
+                itemName = in.readLine();
+ 
+                if (itemName.equals("cancel")) {
+                   cancelOrder = true;
+                   break;
+                }
+ 
+                validItem = "SELECT DISTINCT(itemName) FROM Items WHERE itemName = '" + itemName + "'";
+                itemCheck = esql.executeQuery(validItem);
+ 
+             }
+ 
+             if (cancelOrder) {
+                System.out.println("Canceling order.\n");
+                break;
+             }
+ 
+             System.out.print("Input the amount of the item you want to order: ");
+             String quantity = in.readLine();
+ 
+             System.out.print("As a confirmation, you want to add " + quantity + " " + itemName + " to your order (yes or no)? ");
+             String confirmation = in.readLine();
+ 
+             if (confirmation.equals("yes")) {
+                if (Integer.parseInt(quantity) > 1) {
+                   System.out.println("Items added to order.");
+                } else {
+                   System.out.println("Item added to order.");
+                }
+ 
+                String inputOrderQuery = "INSERT INTO ItemsInOrder VALUES (" + newOrderId + ", '" + itemName + "', " + Integer.parseInt(quantity) + ")";
+                esql.executeUpdate(inputOrderQuery);
+ 
+                String itemPriceQuery = "SELECT price FROM Items WHERE itemName = '" + itemName + "'";
+                double itemPrice = Double.parseDouble(esql.executeQueryAndReturnResult(itemPriceQuery).get(0).get(0));
+ 
+                double total = (itemPrice * Integer.parseInt(quantity));
+                totalPrice += total;
+ 
+             } else {
+                System.out.println("Item has not been added.");
+             }
+ 
+             System.out.print("Type 1 to place the order or type anything else to add another item: ");
+             String place1 = in.readLine();
+ 
+             if (Integer.parseInt(place1) == 1) {
+                System.out.print("Type 1 for confirmation to place your order: ");
+                String place2 = in.readLine();
+ 
+                if (Integer.parseInt(place2) == 1) {
+                   placingOrder = false;
+                   System.out.println("Order has been placed!");
+ 
+                   String updateTotalPrice = "UPDATE FoodOrder SET totalPrice = " + totalPrice + " WHERE orderID = " + newOrderId;
+                   esql.executeUpdate(updateTotalPrice);
+                }
+ 
+             }
+             System.out.println("\n");
+ 
+          }
+  
+       } catch(Exception e) {
+          System.err.println(e.getMessage());
+       }
+    }
    
    public static void viewAllOrders(String authorisedUser, PizzaStore esql) {
       try {
@@ -848,10 +972,61 @@ public class PizzaStore {
    public static void viewStores(PizzaStore esql) {
        try {
           System.out.println("\n- - - - - - - - - - - - - - - - -\n");
-          System.out.println("VIEWING STORES");
-          System.out.println("---------------");
-          
- 
+           System.out.println("VIEWING ORDER INFO");
+           System.out.println("---------------");
+  
+           //first get the role from the user to determine whether they're a customer or not
+           String getRole = "SELECT role FROM Users WHERE login = '" + authorisedUser +"'";
+           String role = esql.executeQueryAndReturnResult(getRole).get(0).get(0).trim();
+  
+           //implement customer only query
+           String getOrderInfo;
+  
+           if (role.equals("customer")) {
+              System.out.println("Would you like to view your most recent orders first? (0 for no, 1-9 for yes)");
+              int choice = readChoice();
+              if (choice != 0) {
+                 viewRecentOrders(authorisedUser, esql);
+              }
+              //TODO: if they have no orders on record exit out immediately
+              System.out.print("Please enter your orderID: "); //get orderID in order to better help the customer
+              int orderID = Integer.parseInt(in.readLine());
+  
+              getOrderInfo = "SELECT orderTimeStamp, totalPrice, orderStatus, itemName, quantity FROM FoodOrder " +
+                                    "NATURAL JOIN ItemsInOrder WHERE login = '" + authorisedUser + "'" +
+                                    "AND orderID = '" + orderID + "'";
+  
+           }
+           else {//implement function to get any order
+              System.out.print("Please enter the orderID: "); //get orderID in order to better help the manager/driver
+              int orderID = Integer.parseInt(in.readLine());
+              
+              getOrderInfo = "SELECT orderTimeStamp, totalPrice, orderStatus, itemName, quantity FROM FoodOrder " +
+                                    "NATURAL JOIN ItemsInOrder WHERE orderID = '" + orderID + "'";
+              
+           }
+  
+           List<List<String>> result = esql.executeQueryAndReturnResult(getOrderInfo);
+  
+           if (result.isEmpty()) {
+              System.out.println("Sorry, either this order was not found, or you do not have access to this order.");
+              return;
+           }
+  
+          //print order details
+          System.out.println("\nORDER DETAILS:");
+          System.out.println("Order Timestamp: " + result.get(0).get(0));
+          System.out.println("Total Price: " + result.get(0).get(1));
+          System.out.println("Order Status: " + result.get(0).get(2));
+  
+          //print items in the order
+          System.out.println("\nITEMS IN ORDER:");
+          System.out.println("Item Name\tQuantity");
+          for (List<String> row : result) {
+              System.out.println(row.get(3) + "\t\t" + row.get(4));
+          }
+           System.out.println("\n- - - - - - - - - - - - - - - - -\n");
+           
        } catch(Exception e) {
           System.err.println(e.getMessage());
        }
@@ -859,10 +1034,39 @@ public class PizzaStore {
 	
    public static void updateOrderStatus(String authorisedUser, PizzaStore esql) {
        try {
+          String getRole = "SELECT role FROM Users WHERE login = '" + authorisedUser + "'";
+          String role = esql.executeQueryAndReturnResult(getRole).get(0).get(0).trim();
+ 
+          if (role.equals("customer")) {
+             System.out.println("Sorry, you do not have access to this feature.");
+             return;
+          }
+ 
           System.out.println("\n- - - - - - - - - - - - - - - - -\n");
           System.out.println("UPDATE ORDER STATUS");
           System.out.println("---------------");
           
+          System.out.println("Would you like to view the most recent orders first? (0 for no, 1-9 for yes)");
+          int choice = readChoice();
+          if (choice != 0) {
+             viewRecentOrders(authorisedUser, esql);
+          }
+          
+          System.out.print("Please enter the orderID to update: "); //get orderID in order to better help the manager/driver
+          int orderID = Integer.parseInt(in.readLine());
+ 
+          String getStatus = "SELECT orderStatus FROM FoodOrder WHERE orderID = '" + orderID + "'";
+          String status = esql.executeQueryAndReturnResult(getStatus).get(0).get(0).trim();
+ 
+          String updatedStatus = "complete";
+          if(status.equals("complete")) {
+             updatedStatus = "incomplete";
+          }
+          String updateOrder = "UPDATE FoodOrder SET orderStatus = '" + updatedStatus + "' WHERE orderID = '"
+             + orderID + "'";
+          
+          System.out.println("Updating order " + orderID + " to " + updatedStatus);
+          esql.executeUpdate(updateOrder);
  
        } catch(Exception e) {
           System.err.println(e.getMessage());
@@ -871,11 +1075,102 @@ public class PizzaStore {
 	
    public static void updateMenu(String authorisedUser, PizzaStore esql) {
        try {
+          String getRole = "SELECT role FROM Users WHERE login = '" + authorisedUser + "'";
+          String role = esql.executeQueryAndReturnResult(getRole).get(0).get(0).trim();
+ 
+          if (!role.equals("manager")) {
+          System.out.println("Sorry, you do not have access to this feature.");
+          return;
+          }
           System.out.println("\n- - - - - - - - - - - - - - - - -\n");
           System.out.println("UPDATE MENU");
           System.out.println("---------------");
-          
  
+          System.out.println("(1) Add Item");
+          System.out.println("(2) Delete Item");
+          System.out.println("(3) Edit Item");
+          System.out.println("(4) Cancel");
+ 
+          String menuAction = "";
+ 
+          switch(readChoice()) {
+             case 1:
+                System.out.print("Type in the name of the item you wish to add: ");
+                String newItem = in.readLine();
+ 
+                //check if menu item already exists in the database
+                String checkItemQuery = "SELECT itemName FROM Items WHERE itemName = '" + newItem + "'";
+                int existingItem = esql.executeQuery(checkItemQuery);
+ 
+                if (existingItem > 0) {
+                   System.out.println("Error: An item with the name " + newItem + " already exists.");
+                   break; 
+                }
+ 
+                System.out.print("List the ingredients of " + newItem + " as a comma(,) separated list: ");
+                String newIng = in.readLine();
+ 
+                System.out.print("Type in the category of " + newItem + ": ");
+                String newCategory = in.readLine();
+ 
+                System.out.print("Type in the price of " + newItem + ": ");
+                float newPrice = Float.parseFloat(in.readLine());
+ 
+                System.out.print("Enter a description for " + newItem + " (press 'Enter' to skip): ");
+                String newDescription = in.readLine().trim();
+ 
+                if (newDescription.isEmpty()) {
+                   newDescription = "";
+                }
+ 
+                menuAction = "INSERT INTO Items VALUES ('" + newItem + "','" + newIng + "','" + newCategory + "', '" +
+                   newPrice + "', '" + newDescription + "')";
+ 
+                esql.executeUpdate(menuAction);
+ 
+                break;
+ 
+             case 2:
+                System.out.println("Enter the name of the item you'd like to delete: ");
+                String itemToDelete = in.readLine();
+                menuAction = "DELETE FROM Items WHERE itemName = '" + itemToDelete + "'";
+                esql.executeUpdate(menuAction);
+                break;
+             case 3:
+                System.out.println("Enter the name of the item you'd like to edit: ");
+                String itemName = in.readLine();
+ 
+                System.out.println("(1) Edit ingredients");
+                System.out.println("(2) Edit price");
+                System.out.println("(3) Edit description");
+                
+                switch(readChoice()) {
+                   case 1:
+                      System.out.print("Type in the new ingredients list as a comma(,) separated list: ");
+                      String newIng1 = in.readLine();
+                      menuAction = "UPDATE Items SET ingredients = '" + newIng1 + "' WHERE itemName = '" + itemName + "'";
+                      esql.executeUpdate(menuAction);
+                      break;
+                   case 2:
+                      System.out.print("Set the new price for " + itemName + ": ");
+                      float newPrice1 = Float.parseFloat(in.readLine());
+                      menuAction = "UPDATE Items SET price = '" + newPrice1 + "' WHERE itemName = '" + itemName + "'";
+                      esql.executeUpdate(menuAction);
+                      break;
+                   case 3:
+                      System.out.print("Update the description for " + itemName + ": ");
+                      String newDesc = in.readLine();
+                      menuAction = "UPDATE Items SET description = '" + newDesc + "' WHERE itemName = '" + itemName + "'";
+                      esql.executeUpdate(menuAction);
+                      break;
+                   default: System.out.println("Unrecognized choice!"); break;
+                }
+                break;
+             case 4:
+                //cancel
+                break;
+             default: System.out.println("Unrecognized choice!"); break;
+          }
        } catch(Exception e) {
           System.err.println(e.getMessage());
        }
@@ -884,11 +1179,133 @@ public class PizzaStore {
    
    public static void updateUser(String authorisedUser, PizzaStore esql) {
        try {
+          String getRole = "SELECT role FROM Users WHERE login = '" + authorisedUser + "'";
+          String role = esql.executeQueryAndReturnResult(getRole).get(0).get(0).trim();
+ 
+          if (!role.equals("manager")) {
+             System.out.println("Sorry, you do not have access to this feature.");
+             return;
+          }
           System.out.println("\n- - - - - - - - - - - - - - - - -\n");
           System.out.println("UPDATING USER INFO");
           System.out.println("---------------");
           
+          System.out.println("(1) Change a username");
+          System.out.println("(2) Change a password");
+          System.out.println("(3) Change a user role");
+          System.out.println("(4) Set/Change a favorite item");
+          System.out.println("(5) Change a phone number");
+          System.out.println("(6) Cancel");
+          System.out.println("\n\n");
  
+          System.out.print("Enter the username of the user whose details you wish to edit: ");
+          String userName0 = in.readLine();
+ 
+          String managerAction = "";
+ 
+          switch(readChoice()) {
+          case 1:
+             System.out.print("Enter a new username: ");
+             String userName1 = in.readLine();
+ 
+             //check if username is already taken
+             String checkUsernameQuery = "SELECT login FROM Users WHERE login = '" + userName1 + "'";
+             int existingUser = esql.executeQuery(checkUsernameQuery);
+ 
+             if (existingUser == 1) {
+                System.out.println("Error: The username " + userName1 + " is already taken.");
+                break;
+             }
+ 
+             managerAction = "UPDATE Users SET login = '" + userName1 + "' WHERE login = '" + userName0 + "'";
+             esql.executeUpdate(managerAction);
+             System.out.println("Username updated successfully!");
+             break;
+ 
+          case 2:
+             System.out.print("Enter a new password: ");
+             String newPass = in.readLine();
+             System.out.print("Enter the new password again: ");
+             String newPassCheck = in.readLine();
+ 
+             if (!newPassCheck.equals(newPass)) {
+                System.out.println("Error: your new passwords do not match. Aborting.");
+                break;
+             }
+ 
+             managerAction = "UPDATE Users SET password = '" + newPass + "' WHERE login = '" + userName0 + "'";
+             esql.executeUpdate(managerAction);
+             System.out.println("Password updated successfully!");
+             break;
+ 
+          case 3:
+             //we're going to assume you can still set 'customer' to 'customer' and so forth
+             System.out.println("(1) Demote a user back to 'customer'");
+             System.out.println("(2) Change user to 'driver'");
+             System.out.println("(3) Promote user to 'manager'");
+             System.out.println("(4) Cancel");
+             System.out.println("\n\n");
+ 
+             String getRole1 = "SELECT role FROM Users WHERE login = '" + userName0 + "'";
+             String role1 = esql.executeQueryAndReturnResult(getRole1).get(0).get(0).trim();
+ 
+             String roleChange = role1;
+ 
+             switch(readChoice()) {
+                case 1:
+                   roleChange = "customer";
+                   break;
+                case 2:
+                   roleChange = "driver";
+                   break;
+                case 3:
+                   roleChange = "manager";
+                   break;
+                case 4:
+                   break;
+                default: System.out.println("Unrecognized choice!"); break;
+             }
+ 
+             managerAction = "UPDATE users SET role = '" + roleChange + "' WHERE login = '" + userName0 + "'";
+             esql.executeUpdate(managerAction);
+             if (!roleChange.equals(role1)) {
+                System.out.println("Role successfully updated!");
+             }
+             break;
+ 
+          case 4:
+             System.out.print("Enter the name of the user's favorite item: ");
+             String favoriteItem = in.readLine();
+ 
+             //check if item exists
+             String checkItem = "SELECT itemName FROM items WHERE itemName = '" + favoriteItem + "'";
+ 
+             if (esql.executeQueryAndReturnResult(checkItem).get(0).isEmpty()) {
+                System.out.println("Error: The item you entered does not currently exist.");
+                break;
+             }
+ 
+             managerAction = "UPDATE Users SET favoriteItems = '" + favoriteItem + "' WHERE login = '" + userName0 + "'";
+             esql.executeUpdate(managerAction);
+             System.out.println("Favorite item updated successfully!");
+ 
+             break;
+ 
+          case 5:
+             System.out.print("Enter a new phone number: ");
+             String newPhoneNumber = in.readLine();
+ 
+             managerAction = "UPDATE Users SET phoneNum = '" + newPhoneNumber + "' WHERE login = '" + userName0 + "'";
+             esql.executeUpdate(managerAction);
+             System.out.println("Phone number updated successfully!");
+ 
+             break;
+ 
+          case 6:
+             //cancel
+             break;
+          default: System.out.println("Unrecognized choice!"); break;
+          }
        } catch(Exception e) {
           System.err.println(e.getMessage());
        }
